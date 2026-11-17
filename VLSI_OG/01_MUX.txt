@@ -1,0 +1,216 @@
+PRACTICAL 1 - 4:1 MULTIPLEXER
+=============================
+
+SOURCE FILE: 01_Behavioral_4_to_1_MUX_with_testbench_ORIGINAL.txt
+----------------------------------------------------------------------
+//Behavioral implementation of 4:1 MUX using if-else
+module prjt_3ub(
+   input w0,
+   input w1,
+   input w2,
+   input w3,
+   input [1:0] s,
+   output reg f
+);
+
+always @(*)
+  if(s==2'b00)
+     f=w0;
+  else if(s==2'b01)
+     f=w1;
+  else if(s==2'b10)
+     f=w2;
+  else
+     f=w3;
+endmodule
+
+//Testbench
+
+module mux4_1_tb;
+
+reg w0,w1,w2,w3;
+
+reg [1:0] S;
+
+wire f;
+
+prjt_3ub uut(w0,w1,w2,w3,S,f);
+
+initial begin
+
+  w0=0; w1=1; w2=0; w3=1;
+
+  S=2'b00; #10;
+
+  S=2'b01; #10;
+
+  S=2'b10; #10;
+
+  S=2'b11; #10;
+
+  $finish;
+
+end
+
+initial begin
+
+  $monitor("time=%0t | S=%b | w0=%b w1=%b w2=%b w3=%b | f=%b",
+       $time,S,w0,w1,w2,w3,f);
+
+end
+
+endmodule
+
+
+SOURCE FILE: 02_Dataflow_4_to_1_MUX_ORIGINAL.txt
+----------------------------------------------------------------------
+// 4:1 MUX - Dataflow Modeling
+
+module mux4to1 (w0, w1, w2, w3, S, f);
+input w0, w1, w2, w3;
+input [1:0] S;
+output f;
+
+assign f = S[1] ? (S[0] ? w3 : w2) :
+      (S[0] ? w1 : w0);
+
+endmodule
+
+
+SOURCE FILE: 03_Gate_Level_4_to_1_MUX_ORIGINAL.txt
+----------------------------------------------------------------------
+// 4:1 MUX - Gate-Level Modeling
+
+module mux4to1 (w0, w1, w2, w3, S, f);
+input w0, w1, w2, w3;
+input [1:0] S;
+output f;
+
+wire s0, s1;
+wire y0, y1, y2, y3;
+
+not (s0, S[0]);
+not (s1, S[1]);
+
+and (y0, w0, s1, s0);
+and (y1, w1, s1, S[0]);
+and (y2, w2, S[1], s0);
+and (y3, w3, S[1], S[0]);
+
+or (f, y0, y1, y2, y3);
+
+endmodule
+
+
+SOURCE FILE: 04_Hierarchical_4_to_1_MUX_ORIGINAL.txt
+----------------------------------------------------------------------
+// 4:1 MUX - Hierarchical Modeling
+
+// 2:1 Multiplexer
+module mux2to1 (y, i0, i1, sel);
+output y;
+input i0, i1, sel;
+
+assign y = sel ? i1 : i0;
+
+endmodule
+
+// 4:1 Multiplexer using Hierarchy
+module mux4to1 (f, w0, w1, w2, w3, s1, s0);
+output f;
+input w0, w1, w2, w3;
+input s1, s0;
+wire y1, y2;
+
+mux2to1 M1 (y1, w0, w1, s0);
+mux2to1 M2 (y2, w2, w3, s0);
+mux2to1 M3 (f, y1, y2, s1);
+
+endmodule
+
+
+SOURCE FILE: Additional_Question_8_to_1_Multiplexer/01_8_to_1_MUX_structural_with_testbench_ORIGINAL.txt
+----------------------------------------------------------------------
+`timescale 1ns / 1ps
+
+//////////////////////////////////////////////////////////////////////////////////
+// Company:
+// Engineer:
+//
+// Create Date: 19.08.2026 23:43:58
+// Design Name:
+// Module Name: mux8_1_structural
+// Project Name:
+// Target Devices:
+// Tool Versions:
+// Description:
+//
+// Dependencies:
+//
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+//
+//////////////////////////////////////////////////////////////////////////////////
+
+// 1. Create the 2:1 Mux Module
+module mux2_1 (input i0, i1, s, output y);
+     assign y = s ? i1 : i0;
+endmodule
+
+// 2. Create the 4:1 Mux Module (using 2:1 muxes)
+module mux4_1 (input [3:0] i, input [1:0] s, output y);
+     wire w0, w1;
+     mux2_1 m0 (i[0], i[1], s[0], w0);
+     mux2_1 m1 (i[2], i[3], s[0], w1);
+     mux2_1 m2 (w0, w1, s[1], y);
+endmodule
+
+// 3. Create the 8:1 Mux Module (using the 4:1 and 2:1 muxes)
+module mux8_1_structural (input [7:0] in, input [2:0] sel, output out);
+     wire mux_lower, mux_upper;
+
+     // Process lower 4 inputs
+     mux4_1 m_low (in[3:0], sel[1:0], mux_lower);
+
+     // Process upper 4 inputs
+     mux4_1 m_high (in[7:4], sel[1:0], mux_upper);
+
+     // Use the MSB of the select line (sel[2]) for the final 2:1 mux
+     mux2_1 m_final (mux_lower, mux_upper, sel[2], out);
+endmodule
+
+module tb_mux8_1;
+
+     // Inputs (Registers drive the inputs in a testbench)
+     reg [7:0] in;
+     reg [2:0] sel;
+
+     // Output (Wire observes the output)
+     wire out;
+
+     // Instantiate the Unit Under Test (UUT)
+     mux8_1_structural uut (
+          .in(in),
+          .sel(sel),
+          .out(out)
+     );
+
+     initial begin
+          // Apply the test pattern we discussed
+          in = 8'b10101010; // Alternating 1s and 0s
+
+          // Test all select combinations with a 10ns delay
+          sel = 3'b000; #10;
+          sel = 3'b001; #10;
+          sel = 3'b010; #10;
+          sel = 3'b011; #10;
+          sel = 3'b100; #10;
+          sel = 3'b101; #10;
+          sel = 3'b110; #10;
+          sel = 3'b111; #10;
+
+          // Stop the simulation
+          $finish;
+     end
+endmodule

@@ -1,0 +1,106 @@
+EXPERIMENT 6: 3-BIT SYNCHRONOUS UP-DOWN COUNTER
+============================================================
+
+up_down=1 counts upward; up_down=0 counts downward. The 3-bit output naturally wraps from 7 to 0 and from 0 to 7.
+
+DESIGN CODE (sync_up_down_counter.v)
+
+module sync_up_down_counter (
+    input  wire       clk,
+    input  wire       rst,
+    input  wire       up_down,
+    output reg  [2:0] count
+);
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            count <= 3'b000;
+        else if (up_down)
+            count <= count + 1'b1;
+        else
+            count <= count - 1'b1;
+    end
+endmodule
+
+TESTBENCH CODE (tb_sync_up_down_counter.v)
+
+`timescale 1ns / 1ps
+module tb_sync_up_down_counter;
+    reg clk, rst, up_down;
+    wire [2:0] count;
+
+    sync_up_down_counter DUT (
+        .clk(clk), .rst(rst), .up_down(up_down), .count(count)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t rst=%b up_down=%b count=%b (%0d)",
+                 $time, rst, up_down, count, count);
+        clk = 0; rst = 1; up_down = 1;
+        #12 rst = 0;
+        repeat (10) @(negedge clk);  // Count up through wraparound
+        up_down = 0;
+        repeat (10) @(negedge clk);  // Count down through wraparound
+        $finish;
+    end
+endmodule
+
+------------------------------------------------------------
+EXPERIMENT 6 - ADDITIONAL QUESTION: MOD-8 AND 4-BIT BINARY COUNTERS
+------------------------------------------------------------
+
+A Mod-8 counter has 8 states (0 to 7) and therefore needs 3 bits. A 4-bit binary counter has 16 states (0 to 15).
+
+DESIGN CODE (mod8_and_4bit_counters.v)
+
+module mod8_counter (
+    input  wire       clk,
+    input  wire       rst,
+    output reg  [2:0] count
+);
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            count <= 3'b000;
+        else
+            count <= count + 1'b1;
+    end
+endmodule
+
+module binary4_counter (
+    input  wire       clk,
+    input  wire       rst,
+    output reg  [3:0] count
+);
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            count <= 4'b0000;
+        else
+            count <= count + 1'b1;
+    end
+endmodule
+
+TESTBENCH CODE (tb_mod8_and_4bit_counters.v)
+
+`timescale 1ns / 1ps
+module tb_mod8_and_4bit_counters;
+    reg clk, rst;
+    wire [2:0] count_mod8;
+    wire [3:0] count_4bit;
+
+    mod8_counter U1 (.clk(clk), .rst(rst), .count(count_mod8));
+    binary4_counter U2 (.clk(clk), .rst(rst), .count(count_4bit));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t mod8=%b (%0d) binary4=%b (%0d)",
+                 $time, count_mod8, count_mod8, count_4bit, count_4bit);
+        clk = 0; rst = 1;
+        #12 rst = 0;
+        repeat (20) @(negedge clk);
+        $finish;
+    end
+endmodule
+
+============================================================

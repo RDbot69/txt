@@ -1,0 +1,116 @@
+EXPERIMENT 1: 4:1 MULTIPLEXER
+============================================================
+
+DESIGN CODE (mux4to1.v)
+
+module mux4to1 (
+    input  wire [3:0] I,
+    input  wire [1:0] S,
+    output reg        Y
+);
+    always @(*) begin
+        case (S)
+            2'b00: Y = I[0];
+            2'b01: Y = I[1];
+            2'b10: Y = I[2];
+            2'b11: Y = I[3];
+            default: Y = 1'b0;
+        endcase
+    end
+endmodule
+
+TESTBENCH CODE (tb_mux4to1.v)
+
+`timescale 1ns / 1ps
+module tb_mux4to1;
+    reg  [3:0] I;
+    reg  [1:0] S;
+    wire Y;
+    integer i;
+
+    mux4to1 DUT (.I(I), .S(S), .Y(Y));
+
+    initial begin
+        $monitor("time=%0t I=%b S=%b Y=%b", $time, I, S, Y);
+        I = 4'b1010;
+        for (i = 0; i < 4; i = i + 1) begin
+            S = i;
+            #10;
+        end
+        I = 4'b0101;
+        for (i = 0; i < 4; i = i + 1) begin
+            S = i;
+            #10;
+        end
+        $finish;
+    end
+endmodule
+
+------------------------------------------------------------
+EXPERIMENT 1 - ADDITIONAL QUESTION: 8:1 MUX USING 2:1 AND 4:1 MUXES
+------------------------------------------------------------
+
+DESIGN CODE (mux8to1_structural.v)
+
+module mux2to1 (
+    input  wire I0,
+    input  wire I1,
+    input  wire S,
+    output wire Y
+);
+    assign Y = S ? I1 : I0;
+endmodule
+
+module mux4to1_structural (
+    input  wire [3:0] I,
+    input  wire [1:0] S,
+    output wire Y
+);
+    wire y0, y1;
+
+    mux2to1 M0 (.I0(I[0]), .I1(I[1]), .S(S[0]), .Y(y0));
+    mux2to1 M1 (.I0(I[2]), .I1(I[3]), .S(S[0]), .Y(y1));
+    mux2to1 M2 (.I0(y0),   .I1(y1),   .S(S[1]), .Y(Y));
+endmodule
+
+module mux8to1_structural (
+    input  wire [7:0] I,
+    input  wire [2:0] S,
+    output wire Y
+);
+    wire y_low, y_high;
+
+    mux4to1_structural M0 (
+        .I(I[3:0]), .S(S[1:0]), .Y(y_low)
+    );
+    mux4to1_structural M1 (
+        .I(I[7:4]), .S(S[1:0]), .Y(y_high)
+    );
+    mux2to1 M2 (
+        .I0(y_low), .I1(y_high), .S(S[2]), .Y(Y)
+    );
+endmodule
+
+TESTBENCH CODE (tb_mux8to1_structural.v)
+
+`timescale 1ns / 1ps
+module tb_mux8to1_structural;
+    reg  [7:0] I;
+    reg  [2:0] S;
+    wire Y;
+    integer i;
+
+    mux8to1_structural DUT (.I(I), .S(S), .Y(Y));
+
+    initial begin
+        $monitor("time=%0t I=%b S=%b Y=%b", $time, I, S, Y);
+        I = 8'b1011_0101;
+        for (i = 0; i < 8; i = i + 1) begin
+            S = i;
+            #10;
+        end
+        $finish;
+    end
+endmodule
+
+============================================================

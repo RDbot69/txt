@@ -1,0 +1,110 @@
+PRACTICAL 2 - FULL ADDER USING TWO HALF ADDERS
+==============================================
+
+SOURCE FILE: 01_Full_Adder_using_two_Half_Adders_with_testbench_ORIGINAL.txt
+----------------------------------------------------------------------
+module half_adder(
+     input A,
+     input B,
+     output Sum,
+     output Carry
+     );
+
+     assign Sum= A^B;
+     assign Carry= A&B;
+endmodule
+
+module or_add(
+     input C,
+     input D,
+     output Y
+);
+     assign Y=C|D;
+endmodule
+
+module full_adder(
+     input A,B,Cin,
+     output sum, Cout
+);
+
+wire s1,c1,c2;
+half_adder HA1 (A, B, s1, c1);
+half_adder HA2 (s1, Cin, sum, c2);
+or_add finout (c1, c2, Cout);
+endmodule
+
+`timescale 1ns / 1ps
+
+module tb_full_adder;
+
+  reg A, B, Cin;
+  wire sum, Cout;
+
+  full_adder uut (A, B, Cin, sum, Cout);
+
+  initial begin
+     $monitor("A=%b, B=%b, Cin=%b --> Sum=%b, Cout=%b", A, B, Cin, sum, Cout);
+
+    A = 0; B = 0; Cin = 0; #10;
+    A = 0; B = 0; Cin = 1; #10;
+    A = 0; B = 1; Cin = 0; #10;
+    A = 0; B = 1; Cin = 1; #10;
+    A = 1; B = 0; Cin = 0; #10;
+    A = 1; B = 0; Cin = 1; #10;
+    A = 1; B = 1; Cin = 0; #10;
+    A = 1; B = 1; Cin = 1; #10;
+
+     $finish;
+  end
+endmodule
+
+
+SOURCE FILE: Additional_Question_RS_Latch_using_NAND/01_RS_Latch_using_NAND_gates_with_testbench_ORIGINAL.txt
+----------------------------------------------------------------------
+`timescale 1ns / 1ps
+
+module rs_latch (
+     input S_bar, // Active-LOW Set (S_bar)
+     input R_bar, // Active-LOW Reset (R_bar)
+     output Q,      // Output
+     output Q_bar // Complementary output (Q_bar)
+);
+
+     nand G1 (Q, S_n, Q_n);
+     nand G2 (Q_n, R_n, Q);
+endmodule
+
+`timescale 1ns / 1ps
+
+module rs_latch_tb;
+     reg S_n;
+     reg R_n;
+     wire Q;
+     wire Q_n;
+
+     rs_latch uut (S_n, R_n, Q, Q_n);
+
+     initial begin
+   $monitor("Time = %0t ns | S_n = %b, R_n = %b | Q = %b, Q_n = %b", $time, S_n, R_n, Q, Q_n);
+
+       // 1. Set State (Q = 1, Q_n = 0)
+       S_n = 0; R_n = 1; #10;
+
+       // 2. Hold State (Q = 1, Q_n = 0)
+       S_n = 1; R_n = 1; #10;
+
+       // 3. Reset State (Q = 0, Q_n = 1)
+       S_n = 1; R_n = 0; #10;
+
+       // 4. Hold State (Q = 0, Q_n = 1)
+       S_n = 1; R_n = 1; #10;
+
+       // 5. Invalid State (Q = 1, Q_n = 1)
+       S_n = 0; R_n = 0; #10;
+
+       // 6. Release to Hold
+       S_n = 1; R_n = 1; #10;
+
+       $finish;
+     end
+endmodule

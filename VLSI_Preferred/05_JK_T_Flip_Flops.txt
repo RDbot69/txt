@@ -1,0 +1,233 @@
+EXPERIMENT 5: JK AND T FLIP-FLOPS
+============================================================
+
+Both designs below use an asynchronous active-low reset named rst_n. Keep rst_n=0 during reset and set rst_n=1 to release reset.
+
+DESIGN CODE (jk_and_t_flipflops.v)
+
+module jk_flip_flop (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire j,
+    input  wire k,
+    output reg  q,
+    output wire q_bar
+);
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            q <= 1'b0;
+        else begin
+            case ({j, k})
+                2'b00: q <= q;       // Hold
+                2'b01: q <= 1'b0;    // Reset
+                2'b10: q <= 1'b1;    // Set
+                2'b11: q <= ~q;      // Toggle
+            endcase
+        end
+    end
+    assign q_bar = ~q;
+endmodule
+
+module t_flip_flop (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire t,
+    output reg  q,
+    output wire q_bar
+);
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            q <= 1'b0;
+        else if (t)
+            q <= ~q;
+        else
+            q <= q;
+    end
+    assign q_bar = ~q;
+endmodule
+
+TESTBENCH CODE (tb_jk_and_t_flipflops.v)
+
+`timescale 1ns / 1ps
+module tb_jk_and_t_flipflops;
+    reg clk, rst_n;
+    reg j, k, t;
+    wire q_jk, qbar_jk;
+    wire q_t, qbar_t;
+
+    jk_flip_flop U1 (
+        .clk(clk), .rst_n(rst_n), .j(j), .k(k),
+        .q(q_jk), .q_bar(qbar_jk)
+    );
+    t_flip_flop U2 (
+        .clk(clk), .rst_n(rst_n), .t(t),
+        .q(q_t), .q_bar(qbar_t)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t rst_n=%b J=%b K=%b Q_JK=%b T=%b Q_T=%b",
+                 $time, rst_n, j, k, q_jk, t, q_t);
+        clk = 0; rst_n = 0; j = 0; k = 0; t = 0;
+        #12 rst_n = 1;
+
+        @(negedge clk) begin j = 0; k = 0; t = 0; end // Hold
+        @(negedge clk) begin j = 1; k = 0; t = 1; end // JK set, T toggle
+        @(negedge clk) begin j = 0; k = 1; t = 1; end // JK reset, T toggle
+        @(negedge clk) begin j = 1; k = 1; t = 0; end // JK toggle, T hold
+        @(negedge clk) begin j = 0; k = 0; t = 1; end // JK hold, T toggle
+        repeat (2) @(negedge clk);
+        $finish;
+    end
+endmodule
+
+============================================================
+
+============================================================
+ADDITIONAL D/T-FLIP-FLOP QUESTION AND OPTIONAL CLOCK DIVIDER CODE
+============================================================
+
+ADDITIONAL CODE FROM THE UPLOADED D/T-FLIP-FLOP QUESTION: 4-BIT PIPO REGISTER USING D FLIP-FLOPS
+============================================================
+
+DESIGN CODE (pipo_register.v)
+
+module pipo_register (
+    input  wire       clk,
+    input  wire       rst_n,
+    input  wire [3:0] d,
+    output reg  [3:0] q
+);
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            q <= 4'b0000;
+        else
+            q <= d;
+    end
+endmodule
+
+TESTBENCH CODE (tb_pipo_register.v)
+
+`timescale 1ns / 1ps
+module tb_pipo_register;
+    reg clk, rst_n;
+    reg [3:0] d;
+    wire [3:0] q;
+
+    pipo_register DUT (.clk(clk), .rst_n(rst_n), .d(d), .q(q));
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t rst_n=%b d=%b q=%b", $time, rst_n, d, q);
+        clk = 0; rst_n = 0; d = 4'b0000;
+        #10 rst_n = 1;
+        #10 d = 4'b1010;
+        #10 d = 4'b1100;
+        #10 d = 4'b0110;
+        #10 d = 4'b1111;
+        #10 d = 4'b0001;
+        #20 $finish;
+    end
+endmodule
+
+============================================================
+ADDITIONAL CODE: D FLIP-FLOP (1-BIT)
+============================================================
+
+DESIGN CODE (d_flip_flop.v)
+
+module d_flip_flop (
+    input  wire clk,
+    input  wire rst_n,
+    input  wire d,
+    output reg  q
+);
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n)
+            q <= 1'b0;
+        else
+            q <= d;
+    end
+endmodule
+
+TESTBENCH CODE (tb_d_flip_flop.v)
+
+`timescale 1ns / 1ps
+module tb_d_flip_flop;
+    reg clk, rst_n, d;
+    wire q;
+
+    d_flip_flop DUT (.clk(clk), .rst_n(rst_n), .d(d), .q(q));
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t rst_n=%b d=%b q=%b", $time, rst_n, d, q);
+        clk = 0; rst_n = 0; d = 0;
+        #12 rst_n = 1;
+        @(negedge clk) d = 1;
+        @(negedge clk) d = 0;
+        @(negedge clk) d = 1;
+        @(negedge clk) d = 1;
+        #10 $finish;
+    end
+endmodule
+
+============================================================
+OPTIONAL: 100 MHz TO 1 Hz CLOCK DIVIDER (COUNTER-BASED)
+============================================================
+
+The Basys 3 board clock is 100 MHz. To generate a 1 Hz square wave, toggle the output after 50,000,000 input clock cycles. This creates a 0.5-second half-period and a 1-second full period.
+
+DESIGN CODE (clock_divider_1hz.v)
+
+module clock_divider_1hz #(
+    parameter integer HALF_PERIOD = 50000000
+) (
+    input  wire clk_100MHz,
+    input  wire rst,
+    output reg  clk_1Hz
+);
+    reg [31:0] counter;
+
+    always @(posedge clk_100MHz or posedge rst) begin
+        if (rst) begin
+            counter <= 32'd0;
+            clk_1Hz <= 1'b0;
+        end
+        else if (counter == HALF_PERIOD - 1) begin
+            counter <= 32'd0;
+            clk_1Hz <= ~clk_1Hz;
+        end
+        else begin
+            counter <= counter + 1'b1;
+        end
+    end
+endmodule
+
+TESTBENCH CODE (tb_clock_divider_1hz.v)
+
+`timescale 1ns / 1ps
+module tb_clock_divider_1hz;
+    reg clk_100MHz, rst;
+    wire clk_1Hz;
+
+    // Use a small count for simulation. The default design value is 50,000,000.
+    clock_divider_1hz #(.HALF_PERIOD(5)) DUT (
+        .clk_100MHz(clk_100MHz), .rst(rst), .clk_1Hz(clk_1Hz)
+    );
+
+    always #5 clk_100MHz = ~clk_100MHz;
+
+    initial begin
+        $monitor("time=%0t rst=%b divided_clock=%b", $time, rst, clk_1Hz);
+        clk_100MHz = 0; rst = 1;
+        #12 rst = 0;
+        #200 $finish;
+    end
+endmodule
+
+For actual Basys 3 hardware, leave HALF_PERIOD at its default 50,000,000. The simulation testbench overrides it to 5 so the divider can be observed quickly.
+
+============================================================

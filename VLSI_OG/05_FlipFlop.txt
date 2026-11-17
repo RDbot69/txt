@@ -1,0 +1,281 @@
+PRACTICAL 5 — JK AND T FLIP-FLOPS
+=================================
+
+SOURCE FILE: 01_JK_flip_flop_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: practical5 VLSI srushti 5.pdf — Practical 5: JK Flip-Flop
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module jk_flip_flop(
+    input wire clk,
+    input wire rst_n,
+    input wire j,
+    input wire k,
+    output reg q,
+    output wire q_bar
+);
+
+always @(posedge clk or posedge rst_n) begin
+    if (rst_n) begin
+        q <= 1'b0;
+    end else begin
+        case ({j, k})
+            2'b00: q <= q;
+            2'b01: q <= 1'b0;
+            2'b10: q <= 1'b1;
+            2'b11: q <= ~q;
+        endcase
+    end
+end
+
+assign q_bar = ~q;
+
+endmodule
+
+// ==================== ORIGINAL TESTBENCH ====================
+`timescale 1ns / 1ps
+
+module tb_flip_flops;
+
+reg clk;
+reg rst_n;
+reg j, k;
+wire q_jk, q_bar_jk;
+
+jk_flip_flop uut_jk (
+    .clk(clk), .rst_n(rst_n), .j(j), .k(k),
+    .q(q_jk), .q_bar(q_bar_jk)
+);
+
+always #5 clk = ~clk;
+
+initial begin
+    clk = 0; rst_n = 0; j = 0; k = 0;
+
+    #12 rst_n = 1;
+
+    #10 j = 1; k = 0;
+    #10 j = 0; k = 1;
+    #10 j = 1; k = 1;
+    #20 j = 0; k = 0;
+
+    #20 $finish;
+end
+
+endmodule
+
+
+SOURCE FILE: 02_T_flip_flop_from_VLSIEXP5_22_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: VLSIEXP5.22.pdf — Verilog Code for T Flip-Flop
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module t_flip_flop (
+    input wire clk, // Clock signal
+    input wire rst_n, // Asynchronous active-low reset
+    input wire t, // Toggle input
+    output reg q, // Flip-flop output
+    output wire q_bar // Inverted output
+);
+
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        q <= 1'b0;
+    end else begin
+        if (t)
+            q <= ~q; // Toggle when T = 1
+        else
+            q <= q; // Hold state when T = 0
+    end
+end
+
+assign q_bar = ~q;
+
+endmodule
+
+// No separate testbench was supplied in this source section.
+
+
+SOURCE FILE: 03_T_flipflop_clock_divider_section_labelled_testbench_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: VLSIEXP5.22.pdf — section headed “Testbench Code (for T flip-flop)” (module as printed)
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+`timescale 1ns / 1ps
+
+module t_flipflop(
+    input wire clk,
+    input wire rst_n,
+    input wire t,
+    output reg q,
+    output wire q_bar,
+    output reg clk_div
+);
+
+reg [25:0] counter;
+
+// Clock divider
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        counter <= 26'd0;
+        clk_div <= 1'b0;
+    end
+    else if (counter == 26'd49_999_999) begin
+        counter <= 26'd0;
+        clk_div <= ~clk_div;
+    end
+    else begin
+        counter <= counter + 1'b1;
+    end
+end
+
+// T Flip-Flop
+always @(posedge clk_div or negedge rst_n) begin
+    if (!rst_n) begin
+        q <= 1'b0;
+    end
+    else if (t) begin
+        q <= ~q;
+    end
+end
+
+// Complement output
+assign q_bar = ~q;
+
+endmodule
+
+// No separate testbench was supplied in this source section.
+
+
+SOURCE FILE: Additional_Question_Divide_by_2_and_PIPO/01_Divide_by_2_frequency_divider_using_T_flip_flop_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: Implement D and T flip.pdf — Divide-by-2 Frequency Divider Using T Flip-Flop
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module t_flip_flop(
+    input wire clk,
+    input wire rst_n,
+    input wire t,
+    output reg q,
+    output wire q_bar
+);
+
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+        q <= 1'b0;
+    else begin
+        case(t)
+            1'b0: q <= q;
+            1'b1: q <= ~q;
+        endcase
+    end
+end
+
+assign q_bar = ~q;
+endmodule
+
+// ==================== ORIGINAL TESTBENCH ====================
+`timescale 1ns / 1ps
+
+module tb_t_flip_flop;
+reg clk;
+reg rst_n;
+reg t;
+
+wire q;
+wire q_bar;
+
+t_flip_flop uut (
+    .clk(clk),
+    .rst_n(rst_n),
+    .t(t),
+    .q(q),
+    .q_bar(q_bar)
+);
+
+always #5 clk = ~clk;
+
+initial begin
+    $dumpfile("dump.vcd");
+    $dumpvars(0, tb_t_flip_flop);
+
+    clk = 0;
+    rst_n = 0;
+    t = 0;
+
+    #10 rst_n = 1;
+    #10 t = 1;
+
+    #80 $finish;
+end
+
+endmodule
+
+
+SOURCE FILE: Additional_Question_Divide_by_2_and_PIPO/02_4_bit_PIPO_register_using_D_flip_flops_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: Implement D and T flip.pdf — 4-Bit PIPO Register Using D Flip-Flops
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module pipo_register(
+    input wire clk,
+    input wire rst_n,
+    input wire [3:0] d,
+    output reg [3:0] q
+);
+
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+        q <= 4'b0000;
+    else
+        q <= d;
+end
+
+endmodule
+
+// ==================== ORIGINAL TESTBENCH ====================
+`timescale 1ns / 1ps
+
+module tb_pipo_register;
+
+reg clk;
+reg rst_n;
+reg [3:0] d;
+wire [3:0] q;
+
+pipo_register uut (
+    .clk(clk),
+    .rst_n(rst_n),
+    .d(d),
+    .q(q)
+);
+
+always #5 clk = ~clk;
+
+initial begin
+    $dumpfile("dump.vcd");
+    $dumpvars(0, tb_pipo_register);
+
+    clk = 0;
+    rst_n = 0;
+    d = 4'b0000;
+
+    #10 rst_n = 1;
+    #10 d = 4'b1010;
+    #10 d = 4'b1100;
+    #10 d = 4'b0110;
+    #10 d = 4'b1111;
+    #10 d = 4'b0001;
+
+    #20 $finish;
+end
+
+endmodule
+
+
+##############################################################################

@@ -1,0 +1,214 @@
+PRACTICAL 7 — SISO SHIFT REGISTER
+=================================
+
+SOURCE FILE: 01_SISO_4_bit_shift_register_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: VLSI 6a Srushti.pdf — Experiment 6: Serial In Serial Out (SISO) Shift Register
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module siso_4bit (
+    input wire clk,
+    input wire rst,
+    input wire serial_in,
+    output wire serial_out
+);
+
+reg [3:0] shift_reg;
+
+always @(posedge clk or posedge rst) begin
+    if (rst)
+        shift_reg <= 4'b0000;
+    else
+        shift_reg <= {shift_reg[2:0], serial_in};
+end
+
+assign serial_out = shift_reg[3];
+
+endmodule
+
+// ==================== ORIGINAL TESTBENCH ====================
+`timescale 1ns / 1ps
+
+module siso_4bit_tb;
+
+reg clk;
+reg rst;
+reg serial_in;
+wire serial_out;
+
+// Instantiate the SISO shift register
+siso_4bit DUT (
+    .clk(clk),
+    .rst(rst),
+    .serial_in(serial_in),
+    .serial_out(serial_out)
+);
+
+// Clock generation: 10 ns period
+initial begin
+    clk = 1'b0;
+    forever #5 clk = ~clk;
+end
+
+// Monitor display
+initial begin
+    $monitor(
+        "Time=%0t | clk=%b | rst=%b | serial_in=%b | shift_reg=%b | serial_out=%b",
+        $time, clk, rst, serial_in, DUT.shift_reg, serial_out
+    );
+end
+
+// Test sequence
+initial begin
+    rst = 1'b1;
+    serial_in = 1'b0;
+
+    // Reset the register
+    #12;
+    rst = 1'b0;
+
+    // Serial input data: 1, 0, 1, 1
+    @(negedge clk) serial_in = 1'b1;
+    @(negedge clk) serial_in = 1'b0;
+    @(negedge clk) serial_in = 1'b1;
+    @(negedge clk) serial_in = 1'b1;
+
+    // Shift additional zeros to observe serial output
+    @(negedge clk) serial_in = 1'b0;
+    @(negedge clk) serial_in = 1'b0;
+    @(negedge clk) serial_in = 1'b0;
+    @(negedge clk) serial_in = 1'b0;
+
+    #10;
+    $finish;
+end
+
+endmodule
+
+
+SOURCE FILE: Additional_Question_SIPO_and_PISO/01_SIPO_PISO_4_bit_shift_register_ORIGINAL.txt
+----------------------------------------------------------------------
+// Original source: VLSI 6b.pdf — 4-bit shift register with SIPO and PISO modes
+// Transcribed from the attached write-up. Page-wrap whitespace normalized.
+
+// ==================== DESIGN MODULE ====================
+module sipo_reg (
+    input wire clk,
+    input wire rst,
+    input wire mode,          // 0 = SIPO, 1 = PISO
+    input wire load,          // Load parallel data in PISO mode
+    input wire serial_in,
+    input wire [3:0] parallel_in,
+    output reg [3:0] parallel_out,
+    output wire serial_out
+);
+
+reg [3:0] shift_reg;
+
+always @(posedge clk or posedge rst) begin
+    if (rst) begin
+        shift_reg <= 4'b0000;
+        parallel_out <= 4'b0000;
+    end
+    else begin
+        if (mode == 1'b0) begin
+            // SIPO operation
+            shift_reg <= {shift_reg[2:0], serial_in};
+            parallel_out <= {shift_reg[2:0], serial_in};
+        end
+        else begin
+            // PISO operation
+            if (load)
+                shift_reg <= parallel_in;
+            else
+                shift_reg <= {1'b0, shift_reg[3:1]};
+        end
+    end
+end
+
+// Serial output during PISO mode
+assign serial_out = shift_reg[0];
+
+endmodule
+
+// ==================== ORIGINAL TESTBENCH ====================
+`timescale 1ns / 1ps
+
+module sipo_reg_tb;
+
+reg clk;
+reg rst;
+reg mode;
+reg load;
+reg serial_in;
+reg [3:0] parallel_in;
+
+wire [3:0] parallel_out;
+wire serial_out;
+
+// Instantiate the design
+sipo_reg DUT (
+    .clk(clk),
+    .rst(rst),
+    .mode(mode),
+    .load(load),
+    .serial_in(serial_in),
+    .parallel_in(parallel_in),
+    .parallel_out(parallel_out),
+    .serial_out(serial_out)
+);
+
+// Clock generation: 10 ns period
+always #5 clk = ~clk;
+
+initial begin
+    clk = 0;
+    rst = 1;
+    mode = 0;
+    load = 0;
+    serial_in = 0;
+    parallel_in = 4'b0000;
+
+    $monitor("Time=%0t | mode=%b | load=%b | serial_in=%b | parallel_in=%b | parallel_out=%b | serial_out=%b",
+             $time, mode, load, serial_in, parallel_in,
+             parallel_out, serial_out);
+
+    // Apply reset
+    #12 rst = 0;
+
+    // --------------------------------
+    // Test 1: SIPO mode (mode = 0)
+    // Send serial bits: 1, 0, 1, 1
+    // --------------------------------
+    mode = 0;
+
+    @(negedge clk) serial_in = 1;
+    @(negedge clk) serial_in = 0;
+    @(negedge clk) serial_in = 1;
+    @(negedge clk) serial_in = 1;
+
+    @(negedge clk) serial_in = 0;
+
+    // --------------------------------
+    // Test 2: PISO mode (mode = 1)
+    // Load parallel data 1011
+    // --------------------------------
+    mode = 1;
+    parallel_in = 4'b1011;
+    load = 1;
+
+    @(negedge clk);
+    load = 0;
+
+    // Shift out all 4 bits
+    repeat (4) @(negedge clk);
+
+    #10;
+    $finish;
+end
+
+endmodule
+
+
+##############################################################################

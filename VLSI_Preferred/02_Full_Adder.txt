@@ -1,0 +1,58 @@
+EXPERIMENT 2: FULL ADDER USING TWO HALF ADDERS
+============================================================
+
+DESIGN CODE (full_adder.v)
+
+module half_adder (
+    input  wire a,
+    input  wire b,
+    output wire sum,
+    output wire carry
+);
+    assign sum   = a ^ b;
+    assign carry = a & b;
+endmodule
+
+module full_adder (
+    input  wire a,
+    input  wire b,
+    input  wire cin,
+    output wire sum,
+    output wire cout
+);
+    wire sum1, carry1, carry2;
+
+    half_adder HA1 (
+        .a(a), .b(b), .sum(sum1), .carry(carry1)
+    );
+    half_adder HA2 (
+        .a(sum1), .b(cin), .sum(sum), .carry(carry2)
+    );
+
+    assign cout = carry1 | carry2;
+endmodule
+
+TESTBENCH CODE (tb_full_adder.v)
+
+`timescale 1ns / 1ps
+module tb_full_adder;
+    reg a, b, cin;
+    wire sum, cout;
+    integer i;
+
+    full_adder DUT (
+        .a(a), .b(b), .cin(cin), .sum(sum), .cout(cout)
+    );
+
+    initial begin
+        $monitor("time=%0t a=%b b=%b cin=%b sum=%b cout=%b",
+                 $time, a, b, cin, sum, cout);
+        for (i = 0; i < 8; i = i + 1) begin
+            {a, b, cin} = i;
+            #10;
+        end
+        $finish;
+    end
+endmodule
+
+============================================================

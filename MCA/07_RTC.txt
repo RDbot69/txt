@@ -1,0 +1,264 @@
+MCA PRACTICAL 7
+===============
+
+SOURCE FILE: Practical_7_LPC2148_RTC/LCD.c
+----------------------------------------------------------------------
+#include <lpc214x.h>
+#include "LCD.h"
+
+#define LCD_DATAMASK 0x000000FF
+#define LCD_PORT 0x000FF000
+#define LCD_SHIFT 12
+#define LCD_RS (1 << 20)
+#define LCD_EN (1 << 21)
+
+void LCD_delay(unsigned int time)
+{
+    unsigned int i, j;
+    for (i = 0; i < time; i++)
+        for (j = 0; j < 500; j++);
+}
+
+void SendInstruction(unsigned int command)
+{
+    command &= LCD_DATAMASK;
+    command = command << LCD_SHIFT;
+
+    IOCLR1 = LCD_RS;
+    LCD_delay(10);
+    IOSET1 = LCD_EN;
+    LCD_delay(10);
+    IOCLR0 = LCD_PORT;
+    IOSET0 = command;
+    LCD_delay(10);
+    IOCLR1 = LCD_EN;
+    LCD_delay(10);
+    IOCLR1 = LCD_RS;
+    IOCLR1 = LCD_DATAMASK << LCD_SHIFT;
+}
+
+void SendData(unsigned int lcddata)
+{
+    lcddata &= LCD_DATAMASK;
+    lcddata = lcddata << LCD_SHIFT;
+
+    IOSET1 = LCD_RS;
+    LCD_delay(10);
+    IOSET1 = LCD_EN;
+    LCD_delay(10);
+    IOCLR0 = LCD_PORT;
+    IOSET0 = lcddata;
+    LCD_delay(10);
+    IOCLR1 = LCD_EN;
+    LCD_delay(10);
+    IOCLR1 = LCD_RS;
+    IOCLR1 = LCD_DATAMASK << LCD_SHIFT;
+}
+
+void SetLineNumber(unsigned int linenum)
+{
+    if (linenum == 1)
+        SendInstruction(SETDDRAMADDR | 0x00);
+    else
+        SendInstruction(SETDDRAMADDR | 0x40);
+}
+
+void SetAddress(unsigned char memory, unsigned int address)
+{
+    address &= 0x0000007F;
+    if (memory == DDRAM)
+        SendInstruction(SETDDRAMADDR | address);
+    else
+        SendInstruction(SETCGRAMADDR | address);
+}
+
+void BlinkDisplay(void)
+{
+    SendInstruction(DISPONOFFCTRL);
+    LCD_delay(500);
+    SendInstruction(DISPONOFFCTRL | DISPLAY_ON | CURSOR_ON | BLINKCHAR_ON);
+    LCD_delay(500);
+}
+
+void ShiftDisplay(unsigned char direction, unsigned int clicks)
+{
+    unsigned int i;
+    if (direction == RIGHTSHIFT)
+    {
+        for (i = 0; i < clicks; i++)
+            SendInstruction(DISPCURSHIFT | SHIFTRIGHT);
+    }
+    else
+    {
+        for (i = 0; i < clicks; i++)
+            SendInstruction(DISPCURSHIFT);
+    }
+}
+
+void ClearDisplay(void)
+{
+    SendInstruction(CLEARDISPLAY);
+}
+
+void InitLCD(void)
+{
+    unsigned int temp;
+    temp = PINSEL2;
+    temp &= 0xFFFFFFF7;
+    PINSEL2 = 0;
+    IODIR1 = LCD_RS | LCD_EN;
+    IODIR0 = 0x000FF000;
+
+    SendInstruction(FUNCTIONSET | FS_DATALENGTH);
+    LCD_delay(5);
+    SendInstruction(FUNCTIONSET | FS_DATALENGTH);
+    LCD_delay(1);
+    SendInstruction(FUNCTIONSET | FS_DATALENGTH | FS_LINES2);
+    SendInstruction(DISPONOFFCTRL);
+    SendInstruction(CLEARDISPLAY);
+    SendInstruction(ENTRYMODESET | ENTRYMODESET_INC);
+    SendInstruction(DISPONOFFCTRL | DISPLAY_ON | CURSOR_ON);
+}
+
+
+SOURCE FILE: Practical_7_LPC2148_RTC/LCD.h
+----------------------------------------------------------------------
+#ifndef LCD_H
+#define LCD_H
+
+// Commands for 16x2 character LCD
+#define CLEARDISPLAY       0x01
+#define RETURNHOME         0x02
+#define ENTRYMODESET       0x04
+#define DISPONOFFCTRL      0x08
+#define DISPCURSHIFT       0x10
+#define FUNCTIONSET        0x20
+#define SETCGRAMADDR       0x40
+#define SETDDRAMADDR       0x80
+#define ENTRYMODESET_INC   0x02
+#define ENTRYMODESET_DEC   0x04
+#define ENTRYMODESET_SHIFT 0x01
+#define DISPLAY_ON         0x04
+#define CURSOR_ON          0x02
+#define BLINKCHAR_ON       0x01
+#define SHIFTCURSOR        0x08
+#define SHIFTRIGHT         0x04
+#define FS_DATALENGTH      0x10
+#define FS_LINES2          0x08
+#define FS_FONT            0x04
+#define DDRAM              1
+#define CGRAM              0
+#define RIGHTSHIFT         1
+#define LEFTSHIFT          0
+
+void SendInstruction(unsigned int);
+void SendData(unsigned int);
+void InitLCD(void);
+void SetLineNumber(unsigned int);
+void SetAddress(unsigned char, unsigned int);
+void BlinkDisplay(void);
+void ShiftDisplay(unsigned char, unsigned int);
+void RollDisplay(void);
+void ClearDisplay(void);
+
+#endif
+
+
+SOURCE FILE: Practical_7_LPC2148_RTC/UART.c
+----------------------------------------------------------------------
+#include <lpc214x.h>
+#include <stdio.h>
+
+void UartInit(unsigned int baudrate)
+{
+    int i, FDiv;
+    i = PINSEL0;
+    i = i & 0xFFFFFFF0;
+    PINSEL0 = (i | 0x05);
+
+    U0LCR = 0x83;
+    FDiv = (15000000 / 16) / baudrate;
+    U0DLM = FDiv / 256;
+    U0DLL = FDiv % 256;
+    U0LCR = 0x03;
+    U0TER = 0x80;
+}
+
+int UART_GetChar(void)
+{
+    while (!(U0LSR & 0x01));
+    return U0RBR;
+}
+
+int UART_PutChar(unsigned char Ch)
+{
+    if (Ch == '\n')
+    {
+        while (!(U0LSR & 0x20));
+        U0THR = 0x0D;
+    }
+    while (!(U0LSR & 0x20));
+    return (U0THR = Ch);
+}
+
+int fputc(int ch, FILE *f)
+{
+    return UART_PutChar(ch);
+}
+
+struct __FILE { int handle; };
+FILE __stdout;
+
+
+SOURCE FILE: Practical_7_LPC2148_RTC/main.c
+----------------------------------------------------------------------
+#include <lpc214x.h>
+#include <stdio.h>
+
+#define RTConPrescaler 1   // 1: use PCLK prescaler; 0: use external oscillator
+extern void UartInit(unsigned int);
+
+void delay(unsigned int time)
+{
+    unsigned int i, j;
+    for (i = 0; i < time; i++)
+        for (j = 0; j < 5000; j++);
+}
+
+void RTCInit(void)
+{
+    CIIR = 0x00;            // No interrupt generated
+#ifdef RTConPrescaler
+    PREINT = 0x16D;         // Assuming 15 MHz PCLK
+    PREFRAC = 0x1B00;       // Assuming 15 MHz PCLK
+    CCR = 0x02;
+#else
+    CCR = 0x02;
+#endif
+}
+
+void SetTime(int hours, int mins, int sec)
+{
+    SEC = sec;
+    MIN = mins;
+    HOUR = hours;
+    CCR = 0x01;             // Start the clock
+}
+
+int main(void)
+{
+    UartInit(9600);
+    RTCInit();
+    SetTime(5, 30, 1);
+
+    while (1)
+    {
+        printf("\nThe Time is ");
+        printf(":%02d", HOUR);
+        printf(":%02d", MIN);
+        printf(":%02d", SEC);
+        delay(500);
+    }
+
+    return 0;
+}

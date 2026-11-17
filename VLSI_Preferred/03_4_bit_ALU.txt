@@ -1,0 +1,130 @@
+EXPERIMENT 3: 4-BIT ALU WITHOUT CARRY
+============================================================
+
+This version follows the uploaded ALU-without-carry write-up: the result is four bits, so an addition overflow is discarded.
+
+DESIGN CODE (alu_without_carry.v)
+
+module ALU_4bit (
+    input  wire [3:0] A,
+    input  wire [3:0] B,
+    input  wire [2:0] sel,
+    output reg  [3:0] Y
+);
+    always @(*) begin
+        if      (sel == 3'b000) Y = A + B;       // Addition
+        else if (sel == 3'b001) Y = A - B;       // Subtraction
+        else if (sel == 3'b010) Y = A & B;       // AND
+        else if (sel == 3'b011) Y = A | B;       // OR
+        else if (sel == 3'b100) Y = A ^ B;       // XOR
+        else if (sel == 3'b101) Y = ~A;          // NOT A
+        else if (sel == 3'b110) Y = A << 1;      // Left shift
+        else if (sel == 3'b111) Y = A >> 1;      // Right shift
+        else                   Y = 4'b0000;
+    end
+endmodule
+
+TESTBENCH CODE (tb_alu_without_carry.v)
+
+`timescale 1ns / 1ps
+module tb_alu_without_carry;
+    reg  [3:0] A, B;
+    reg  [2:0] sel;
+    wire [3:0] Y;
+    integer i;
+
+    ALU_4bit DUT (.A(A), .B(B), .sel(sel), .Y(Y));
+
+    initial begin
+        $monitor("time=%0t A=%b B=%b sel=%b Y=%b", $time, A, B, sel, Y);
+        A = 4'b0101;
+        B = 4'b0011;
+        for (i = 0; i < 8; i = i + 1) begin
+            sel = i;
+            #10;
+        end
+        $finish;
+    end
+endmodule
+
+============================================================
+EXPERIMENT 3: 4-BIT ALU WITH CARRY / BORROW
+============================================================
+
+This version includes carry-out for addition and a borrow indication for subtraction. For subtraction, carry=1 means A is smaller than B (unsigned borrow occurs). Shift operations implement multiplication/division by 2 for unsigned values, with truncation to four bits.
+
+DESIGN CODE (alu_with_carry_borrow.v)
+
+module alu_4bit_carry (
+    input  wire [3:0] A,
+    input  wire [3:0] B,
+    input  wire [2:0] sel,
+    output reg  [3:0] Y,
+    output reg        carry
+);
+    reg [4:0] temp;
+
+    always @(*) begin
+        Y     = 4'b0000;
+        carry = 1'b0;
+        temp  = 5'b00000;
+
+        case (sel)
+            3'b000: begin                    // Addition with carry
+                temp  = {1'b0, A} + {1'b0, B};
+                Y     = temp[3:0];
+                carry = temp[4];
+            end
+            3'b001: begin                    // Subtraction with borrow
+                Y     = A - B;
+                carry = (A < B);             // 1 when borrow occurs
+            end
+            3'b010: Y = A & B;               // AND
+            3'b011: Y = A | B;               // OR
+            3'b100: Y = A ^ B;               // XOR
+            3'b101: Y = ~A;                  // NOT A
+            3'b110: Y = A << 1;              // Multiply by 2 (4-bit result)
+            3'b111: Y = A >> 1;              // Divide by 2 (unsigned)
+            default: begin
+                Y = 4'b0000;
+                carry = 1'b0;
+            end
+        endcase
+    end
+endmodule
+
+TESTBENCH CODE (tb_alu_with_carry_borrow.v)
+
+`timescale 1ns / 1ps
+module tb_alu_with_carry_borrow;
+    reg  [3:0] A, B;
+    reg  [2:0] sel;
+    wire [3:0] Y;
+    wire carry;
+    integer i;
+
+    alu_4bit_carry DUT (
+        .A(A), .B(B), .sel(sel), .Y(Y), .carry(carry)
+    );
+
+    initial begin
+        $monitor("time=%0t A=%b B=%b sel=%b Y=%b carry_or_borrow=%b",
+                 $time, A, B, sel, Y, carry);
+
+        // Addition overflow: 15 + 1 = 16
+        A = 4'b1111; B = 4'b0001; sel = 3'b000; #10;
+
+        // Subtraction borrow: 2 - 4
+        A = 4'b0010; B = 4'b0100; sel = 3'b001; #10;
+
+        // Test the remaining ALU operations
+        A = 4'b0101; B = 4'b0011;
+        for (i = 2; i < 8; i = i + 1) begin
+            sel = i;
+            #10;
+        end
+        $finish;
+    end
+endmodule
+
+============================================================

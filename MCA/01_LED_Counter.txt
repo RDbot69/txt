@@ -1,0 +1,114 @@
+MCA PRACTICAL 1
+===============
+
+SOURCE FILE: Practical_1_8051_LEDs/alternate_leds.c
+----------------------------------------------------------------------
+#include <reg51.h>
+
+void delay(void)
+{
+    int i;
+    for (i = 0; i < 50000; i++);
+}
+
+void main(void)
+{
+    while (1)
+    {
+        P2 = 0xAA;       // 10101010
+        delay();
+        P2 = 0x55;       // 01010101
+        delay();
+    }
+}
+
+
+SOURCE FILE: Practical_1_8051_LEDs/bcd_counter.c
+----------------------------------------------------------------------
+#include <reg51.h>
+
+void delay(unsigned int t);
+
+void main(void)
+{
+    unsigned char count;
+
+    while (1)
+    {
+        for (count = 0; count <= 9; count++)
+        {
+            P2 = count;
+            delay(1000);
+        }
+    }
+}
+
+void delay(unsigned int t)
+{
+    unsigned int i, j;
+    for (i = 0; i < t; i++)
+    {
+        for (j = 0; j < 1275; j++)
+        {
+        }
+    }
+}
+
+
+SOURCE FILE: Practical_1_8051_LEDs/binary_counter_0_to_15.c
+----------------------------------------------------------------------
+#include <reg51.h>
+
+void delay(unsigned int t);
+
+void main(void)
+{
+    unsigned char count;
+
+    while (1)
+    {
+        for (count = 0; count <= 15; count++)
+        {
+            P2 = count;
+            delay(1000);
+        }
+    }
+}
+
+void delay(unsigned int t)
+{
+    unsigned int i, j;
+    for (i = 0; i < t; i++)
+    {
+        for (j = 0; j < 1275; j++)
+        {
+        }
+    }
+}
+
+
+SOURCE FILE: Practical_1_8051_LEDs/led_blinking.c
+----------------------------------------------------------------------
+#include <reg51.h>
+
+void delay(void);
+
+void main(void)
+{
+    while (1)
+    {
+        P2 = 0xFF;       // All LEDs ON (11111111)
+        delay();
+        P2 = 0x00;       // All LEDs OFF (00000000)
+        delay();
+    }
+}
+
+void delay(void)
+{
+    int i, j;
+    for (i = 0; i < 500; i++)
+    {
+        for (j = 0; j < 1000; j++);
+    }
+}

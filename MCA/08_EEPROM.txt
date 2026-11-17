@@ -1,0 +1,230 @@
+MCA PRACTICAL 8
+===============
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/EEPROM.c
+----------------------------------------------------------------------
+#include "I2C.h"
+
+#define EEPROM_Addr 0xA0
+
+void EEPROM_write(unsigned int add, unsigned char *data, unsigned char len)
+{
+    unsigned char i;
+
+    I2CStart();
+    I2Csend(EEPROM_Addr | I2Cwrite);
+    I2Csend(add >> 8);
+    I2Csend(add & 0xFF);
+
+    for (i = 0; i < len; i++)
+        I2Csend(*data++);
+
+    I2CStop();
+}
+
+void EEPROM_read(unsigned int add, unsigned char *data, unsigned char len)
+{
+    unsigned char i;
+
+    I2CStart();
+    I2Csend(EEPROM_Addr | I2Cwrite);
+    I2Csend(add >> 8);
+    I2Csend(add & 0xFF);
+    I2CStart();
+    I2Csend(EEPROM_Addr | I2Cread);
+
+    for (i = 0; i < len; i++)
+        *data++ = I2Cget();
+
+    I2CStop();
+}
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/EEPROM.h
+----------------------------------------------------------------------
+#ifndef EEPROM_H
+#define EEPROM_H
+
+void EEPROM_write(unsigned int, unsigned char *, unsigned char);
+void EEPROM_read(unsigned int, unsigned char *, unsigned char);
+
+#endif
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/I2C.c
+----------------------------------------------------------------------
+#include <lpc214x.h>
+
+#define I2C_ENABLE (1 << 6)
+#define I2C_START  (1 << 5)
+#define I2C_STOP   (1 << 4)
+#define I2C_SI     (1 << 3)
+#define I2C_AACK   (1 << 2)
+
+void I2CInit(void)
+{
+    PINSEL0 &= 0xFFFFFF0F;
+    PINSEL0 |= 0x00000050;     // P0.2 = SCL0, P0.3 = SDA0
+
+    I2C0CONCLR = I2C_ENABLE | I2C_START | I2C_STOP | I2C_SI | I2C_AACK;
+    I2C0SCLH = 0x4B;
+    I2C0SCLL = 0x4B;
+    I2C0CONSET = I2C_ENABLE;
+}
+
+void I2CStart(void)
+{
+    unsigned int status;
+
+    I2C0CONCLR = I2C_START | I2C_STOP | I2C_SI | I2C_AACK;
+    I2C0CONSET = I2C_ENABLE;
+    I2C0CONSET = I2C_START;
+    while (!((status = I2C0CONSET) & I2C_SI));
+}
+
+void I2CStop(void)
+{
+    I2C0CONCLR = I2C_START | I2C_SI | I2C_AACK;
+    I2C0CONSET = I2C_STOP;
+}
+
+void I2Csend(unsigned char data)
+{
+    unsigned int status;
+    I2C0DAT = data;
+    I2C0CONCLR = I2C_START | I2C_STOP;
+    I2C0CONCLR = I2C_SI;
+    while (!((status = I2C0CONSET) & I2C_SI));
+}
+
+unsigned char I2Cget(void)
+{
+    unsigned char data;
+    unsigned int status;
+
+    I2C0CONCLR = I2C_START | I2C_STOP;
+    I2C0CONCLR = I2C_SI;
+    I2C0CONSET = I2C_AACK;
+    while (!((status = I2C0CONSET) & I2C_SI));
+    data = I2C0DAT;
+    return data;
+}
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/I2C.h
+----------------------------------------------------------------------
+#ifndef I2C_H
+#define I2C_H
+
+#define I2Cwrite 0x00
+#define I2Cread  0x01
+
+void I2CInit(void);
+void I2CStart(void);
+void I2CStop(void);
+void I2Csend(unsigned char);
+unsigned char I2Cget(void);
+
+#endif
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/UART.c
+----------------------------------------------------------------------
+#include <stdio.h>
+#include <lpc214x.h>
+#include "UART.h"
+
+void UartInit(unsigned int baudrate)
+{
+    unsigned int FDiv;
+    PINSEL0 &= 0xFFFFFFF0;
+    PINSEL0 |= 0x00000005;
+
+    U0LCR = 0x83;
+    U0FDR = 0x10;
+    FDiv = (15000000 / 16) / baudrate;
+    U0DLM = FDiv / 256;
+    U0DLL = FDiv % 256;
+    U0LCR = 0x03;
+    U0TER = 0x80;
+}
+
+int UART_GetChar(void)
+{
+    while (!(U0LSR & 0x01));
+    return U0RBR;
+}
+
+int UART_PutChar(unsigned char Ch)
+{
+    if (Ch == '\n')
+    {
+        while (!(U0LSR & 0x20));
+        U0THR = 0x0D;
+    }
+    while (!(U0LSR & 0x20));
+    return (U0THR = Ch);
+}
+
+int fputc(int ch, FILE *f)
+{
+    return UART_PutChar(ch);
+}
+
+struct __FILE { int handle; };
+FILE __stdout;
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/UART.h
+----------------------------------------------------------------------
+#ifndef UART_H
+#define UART_H
+
+void UartInit(unsigned int);
+int UART_GetChar(void);
+int UART_PutChar(unsigned char);
+
+#endif
+
+
+SOURCE FILE: Practical_8_LPC2148_EEPROM_I2C/main.c
+----------------------------------------------------------------------
+#include <lpc214x.h>
+#include "UART.h"
+#include "I2C.h"
+#include "EEPROM.h"
+#include <stdio.h>
+
+unsigned char write_array[10] = {
+    0x11, 0x12, 0x13, 0x14, 0x15,
+    0x16, 0x17, 0x18, 0x19, 0xC5
+};
+unsigned char read_array[10];
+
+int main(void)
+{
+    unsigned int i;
+
+    PINSEL2 = 0;             // LED init
+    IODIR1 = 0xFF000000;
+    IOCLR1 = 0xFF << 24;
+
+    UartInit(9600);
+    printf("I2C EEPROM\r\n");
+    I2CInit();
+
+    printf("Writing Data.....\r\n");
+    EEPROM_write(0x1349, write_array, 10);
+
+    printf("Reading Data.....\r\n");
+    EEPROM_read(0x1349, read_array, 10);
+
+    for (i = 0; i < 10; i++)
+    {
+        printf("write_array[%d] = 0x%02X\tread_array[%d] = 0x%02X\r\n",
+               i, write_array[i], i, read_array[i]);
+    }
+
+    IOSET1 = read_array[9] << 24;
+    while (1);              // Stop here forever
+}

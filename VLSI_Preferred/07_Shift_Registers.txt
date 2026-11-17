@@ -1,0 +1,133 @@
+EXPERIMENT 7 (THE UPLOADED SISO WRITE-UP LABELS THIS EXPERIMENT 6): 4-BIT SISO SHIFT REGISTER
+============================================================
+
+DESIGN CODE (siso_4bit.v)
+
+module siso_4bit (
+    input  wire clk,
+    input  wire rst,
+    input  wire serial_in,
+    output wire serial_out
+);
+    reg [3:0] shift_reg;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst)
+            shift_reg <= 4'b0000;
+        else
+            shift_reg <= {shift_reg[2:0], serial_in};
+    end
+
+    assign serial_out = shift_reg[3];
+endmodule
+
+TESTBENCH CODE (tb_siso_4bit.v)
+
+`timescale 1ns / 1ps
+module tb_siso_4bit;
+    reg clk, rst, serial_in;
+    wire serial_out;
+
+    siso_4bit DUT (
+        .clk(clk), .rst(rst), .serial_in(serial_in), .serial_out(serial_out)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t clk=%b rst=%b serial_in=%b shift_reg=%b serial_out=%b",
+                 $time, clk, rst, serial_in, DUT.shift_reg, serial_out);
+        clk = 0; rst = 1; serial_in = 0;
+        #12 rst = 0;
+        @(negedge clk) serial_in = 1;
+        @(negedge clk) serial_in = 0;
+        @(negedge clk) serial_in = 1;
+        @(negedge clk) serial_in = 1;
+        repeat (4) @(negedge clk); // Shift zeros through and observe serial output
+        $finish;
+    end
+endmodule
+
+------------------------------------------------------------
+EXPERIMENT 7 - ADDITIONAL QUESTION: 4-BIT SIPO AND PISO SHIFT REGISTER
+------------------------------------------------------------
+
+mode=0 selects SIPO; mode=1 selects PISO. In PISO mode the serial output is the least-significant bit, so the parallel word is shifted out LSB-first.
+
+DESIGN CODE (sipo_piso_4bit.v)
+
+module sipo_reg (
+    input  wire       clk,
+    input  wire       rst,
+    input  wire       mode,          // 0 = SIPO, 1 = PISO
+    input  wire       load,          // Parallel load in PISO mode
+    input  wire       serial_in,
+    input  wire [3:0] parallel_in,
+    output reg  [3:0] parallel_out,
+    output wire       serial_out
+);
+    reg [3:0] shift_reg;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            shift_reg    <= 4'b0000;
+            parallel_out <= 4'b0000;
+        end
+        else if (mode == 1'b0) begin
+            shift_reg    <= {shift_reg[2:0], serial_in};
+            parallel_out <= {shift_reg[2:0], serial_in};
+        end
+        else begin
+            if (load)
+                shift_reg <= parallel_in;
+            else
+                shift_reg <= {1'b0, shift_reg[3:1]};
+        end
+    end
+
+    assign serial_out = shift_reg[0];
+endmodule
+
+TESTBENCH CODE (tb_sipo_reg.v)
+
+`timescale 1ns / 1ps
+module tb_sipo_reg;
+    reg clk, rst, mode, load, serial_in;
+    reg [3:0] parallel_in;
+    wire [3:0] parallel_out;
+    wire serial_out;
+
+    sipo_reg DUT (
+        .clk(clk), .rst(rst), .mode(mode), .load(load),
+        .serial_in(serial_in), .parallel_in(parallel_in),
+        .parallel_out(parallel_out), .serial_out(serial_out)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        $monitor("time=%0t mode=%b load=%b serial_in=%b parallel_in=%b parallel_out=%b serial_out=%b",
+                 $time, mode, load, serial_in, parallel_in, parallel_out, serial_out);
+        clk = 0; rst = 1; mode = 0; load = 0;
+        serial_in = 0; parallel_in = 4'b0000;
+        #12 rst = 0;
+
+        // SIPO: shift in 1, 0, 1, 1; parallel output becomes 1011
+        mode = 0;
+        @(negedge clk) serial_in = 1;
+        @(negedge clk) serial_in = 0;
+        @(negedge clk) serial_in = 1;
+        @(negedge clk) serial_in = 1;
+
+        // PISO: load 1011, then shift four bits out at serial_out
+        mode = 1;
+        parallel_in = 4'b1011;
+        load = 1;
+        @(negedge clk) load = 0;
+        repeat (4) @(negedge clk);
+        #10;
+        $finish;
+    end
+endmodule
+
+============================================================
